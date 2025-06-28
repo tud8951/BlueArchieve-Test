@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="img/favicon.ico" >
+    <link rel="shortcut icon" href="https://baimg.bigjackson.top/img/favicon.ico" >
     <title>BA抽卡模拟器-真实版</title>
     <style>
         /* 手机端测试样式 */
@@ -1183,6 +1183,117 @@
             cursor: pointer;
         }
         .gacha-result-close:hover { color: #1976d2; }
+        
+        /* 图片预览弹窗样式 */
+        .image-preview-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .image-preview-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            cursor: default;
+        }
+        
+        .image-preview-content img {
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+            object-fit: contain;
+            display: block;
+        }
+        
+        .image-preview-info {
+            padding: 20px;
+            text-align: center;
+            background: #f8f9fa;
+        }
+        
+        .image-preview-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+        
+        .image-preview-details {
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .image-preview-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        
+        .image-preview-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+        
+        /* 为可点击的图片添加悬停效果 */
+        .clickable-image {
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .clickable-image:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            .image-preview-content {
+                max-width: 95vw;
+                max-height: 95vh;
+            }
+            
+            .image-preview-info {
+                padding: 15px;
+            }
+            
+            .image-preview-name {
+                font-size: 1.3rem;
+            }
+            
+            .image-preview-details {
+                font-size: 0.9rem;
+            }
+            
+            .image-preview-close {
+                width: 35px;
+                height: 35px;
+                font-size: 1.3rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1201,7 +1312,7 @@
         <div class="gacha-left">
             <div class="gacha-arrow left" id="prevBanner">&#8592;</div>
             <div class="gacha-character">
-                <img id="characterImage" src="https://baimg.bigjackson.top/img/ailisi.png" alt="角色大图">
+                <img id="characterImage" src="https://baimg.bigjackson.top/img/ailisi.png" alt="角色大图" class="clickable-image">
                 <div class="character-info">
                     <div class="star">★★★</div>
                     <div class="name">爱丽丝</div>
@@ -1222,8 +1333,6 @@
     <div class="gacha-bottom">
         <button class="gacha-btn single">招募1次</button>
         <button class="gacha-btn multi">招募10次</button>
-        <button class="gacha-btn history" style="background: linear-gradient(90deg, #f3e5f5 60%, #e1bee7 100%); color: #7b1fa2;">历史记录</button>
-        <button class="gacha-btn reset" style="background: linear-gradient(90deg, #ffebee 60%, #ffcdd2 100%); color: #d32f2f;" onclick="resetGameData()">重置数据</button>
     </div>
     
     <!-- 抽卡统计区域 -->
@@ -1309,12 +1418,15 @@
         </div>
     </div>
     
-    <!-- 抽卡历史记录弹窗 -->
-    <div class="gacha-result-modal" id="historyModal">
-        <div class="gacha-result-content" style="max-height: 80vh; overflow-y: auto;">
-            <button class="gacha-result-close" id="closeHistory">×</button>
-            <div class="gacha-result-title">抽卡历史记录</div>
-            <div id="historyContent"></div>
+    <!-- 图片预览弹窗 -->
+    <div class="image-preview-modal" id="imagePreviewModal">
+        <div class="image-preview-content" id="imagePreviewContent">
+            <button class="image-preview-close" id="closeImagePreview">×</button>
+            <img id="previewImage" src="" alt="角色预览">
+            <div class="image-preview-info">
+                <div class="image-preview-name" id="previewName"></div>
+                <div class="image-preview-details" id="previewDetails"></div>
+            </div>
         </div>
     </div>
     
@@ -1655,6 +1767,33 @@
             loadGameData(); // 加载保存的数据
             updateStats();
             initDrawingPanel();
+            addImageClickEvents(); // 添加图片点击事件
+            
+            // 绑定图片预览关闭事件
+            const closeImagePreviewBtn = document.getElementById('closeImagePreview');
+            const imagePreviewModal = document.getElementById('imagePreviewModal');
+            
+            if (closeImagePreviewBtn) {
+                closeImagePreviewBtn.addEventListener('click', closeImagePreview);
+            }
+            
+            if (imagePreviewModal) {
+                imagePreviewModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeImagePreview();
+                    }
+                });
+            }
+            
+            // 键盘事件支持
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const modal = document.getElementById('imagePreviewModal');
+                    if (modal && modal.style.display === 'flex') {
+                        closeImagePreview();
+                    }
+                }
+            });
         }
         
         // 保存游戏数据到本地存储
@@ -1810,7 +1949,7 @@
                     card.style.animationDelay = `${index * 0.1}s`;
                     
                     card.innerHTML = `
-                        <div class="card-image" style="background-image: url('${student.image}')">
+                        <div class="card-image clickable-image" style="background-image: url('${student.image}')">
                             ${student.new ? '<div class="new-student">NEW</div>' : ''}
                             <div class="card-rarity rarity-${student.rarity}">${student.rarity}★</div>
                         </div>
@@ -1872,7 +2011,9 @@
 
         function updateBanner() {
             const banner = banners[currentBanner];
-            document.getElementById('characterImage').src = banner.image;
+            const characterImage = document.getElementById('characterImage');
+            characterImage.src = banner.image;
+            characterImage.className = 'clickable-image'; // 确保保持可点击样式
             document.querySelector('.character-info .star').textContent = '★'.repeat(banner.star);
             document.querySelector('.character-info .name').textContent = banner.name;
             document.querySelector('.character-info .cv').textContent = '配音 ' + banner.cv;
@@ -1946,7 +2087,7 @@
                 const card = document.createElement('div');
                 card.className = 'gacha-result-card';
                 card.innerHTML = `
-                    <img src="${student.image}" alt="${student.name}">
+                    <img src="${student.image}" alt="${student.name}" class="clickable-image">
                     <div class="star">${'★'.repeat(student.rarity)}</div>
                     <div class="name">${student.name}</div>
                     <div class="type">${student.type}</div>
@@ -2113,6 +2254,109 @@
         
         // 窗口大小改变时执行
         window.addEventListener('resize', forceHideGachaLeft);
+        
+        // 图片预览功能
+        function showImagePreview(student) {
+            const modal = document.getElementById('imagePreviewModal');
+            const previewImage = document.getElementById('previewImage');
+            const previewName = document.getElementById('previewName');
+            const previewDetails = document.getElementById('previewDetails');
+            
+            // 设置预览内容
+            previewImage.src = student.image;
+            previewImage.alt = student.name;
+            previewName.textContent = student.name;
+            previewDetails.innerHTML = `
+                <span style="color: ${student.rarity === 3 ? '#ffd700' : student.rarity === 2 ? '#b39ddb' : '#a5d6a7'}; font-weight: bold;">
+                    ${'★'.repeat(student.rarity)}
+                </span> | 
+                <span style="color: #666;">${student.type}</span>
+                ${student.new ? ' | <span style="background: #ff4081; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem;">NEW</span>' : ''}
+            `;
+            
+            // 显示弹窗
+            modal.style.display = 'flex';
+            
+            // 添加动画效果
+            const content = document.getElementById('imagePreviewContent');
+            content.style.transform = 'scale(0.8)';
+            content.style.opacity = '0';
+            
+            setTimeout(() => {
+                content.style.transition = 'all 0.3s ease';
+                content.style.transform = 'scale(1)';
+                content.style.opacity = '1';
+            }, 10);
+        }
+        
+        function closeImagePreview() {
+            const modal = document.getElementById('imagePreviewModal');
+            const content = document.getElementById('imagePreviewContent');
+            
+            // 添加关闭动画
+            content.style.transition = 'all 0.3s ease';
+            content.style.transform = 'scale(0.8)';
+            content.style.opacity = '0';
+            
+            setTimeout(() => {
+                modal.style.display = 'none';
+                content.style.transform = '';
+                content.style.opacity = '';
+            }, 300);
+        }
+        
+        // 为角色图片添加点击事件
+        function addImageClickEvents() {
+            // 为抽卡结果卡片添加点击事件
+            document.addEventListener('click', function(e) {
+                const cardImage = e.target.closest('.card-image');
+                const resultCard = e.target.closest('.gacha-result-card img');
+                const characterImage = e.target.closest('.gacha-character img');
+                
+                if (cardImage) {
+                    // 从卡片中找到学生信息
+                    const card = cardImage.closest('.card');
+                    const cardName = card.querySelector('.card-name').textContent;
+                    const student = students.find(s => s.name === cardName);
+                    if (student) {
+                        showImagePreview(student);
+                    }
+                } else if (resultCard) {
+                    // 从结果卡片中找到学生信息
+                    const card = resultCard.closest('.gacha-result-card');
+                    const cardName = card.querySelector('.name').textContent;
+                    const student = students.find(s => s.name === cardName);
+                    if (student) {
+                        showImagePreview(student);
+                    }
+                } else if (characterImage) {
+                    // 主界面角色大图
+                    const banner = banners[currentBanner];
+                    const student = students.find(s => s.name === banner.name);
+                    if (student) {
+                        showImagePreview(student);
+                    }
+                }
+            });
+        }
+        
+        // 绑定图片预览关闭事件
+        document.getElementById('closeImagePreview').addEventListener('click', closeImagePreview);
+        document.getElementById('imagePreviewModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeImagePreview();
+            }
+        });
+        
+        // 键盘事件支持
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const imagePreviewModal = document.getElementById('imagePreviewModal');
+                if (imagePreviewModal.style.display === 'flex') {
+                    closeImagePreview();
+                }
+            }
+        });
     </script>
 </body>
 </html>
